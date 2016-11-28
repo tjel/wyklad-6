@@ -255,21 +255,28 @@ docker images
 - wirtualy interfejs sieciowy
 
 ```bash
-ifconfig -a
-
+ifconfig
+docker0   Link encap:Ethernet  HWaddr 02:42:17:45:e8:ad  
+          inet addr:172.17.0.1  Bcast:0.0.0.0  Mask:255.255.0.0
+          inet6 addr: fe80::42:17ff:fe45:e8ad/64 Scope:Link
+          UP BROADCAST MULTICAST  MTU:1500  Metric:1
+          RX packets:3 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0 
+          RX bytes:228 (228.0 B)  TX bytes:90 (90.0 B)
 ```
 
 ---
 #### Zarzadzanie kontenerami
 
-- polaczenie z kontenerem
+- utworzenie nowego kontenera
 
 ```bash
 docker run -it ubuntu
-root@d9b100f2f636:/#
-root@d9b100f2f636:/# apt-get update
-root@d9b100f2f636:/# apt-get install -y nodejs
-root@d9b100f2f636:/# exit
+root@f4c9e2839826:/#
+root@f4c9e2839826:/# apt-get update
+root@f4c9e2839826:/# apt-get install -y nodejs
+root@f4c9e2839826:/# exit
 ```
 
 - zniszczenie kontenera
@@ -280,16 +287,15 @@ docker rm <container-id>
 - zapisanie stanu kontenera do lokalnego repozytorium
 
 ```bash
-root@d9b100f2f636:/#  exit
 docker commit -m "Comment" -a "Author" <container-id> <repository>/<image_name>
-docker commit -m "added node.js" -a "tjel" d9b100f2f636 tjel/test-repo
+docker commit -m "added node.js" -a "tjel" f4c9e2839826 tjel/ubuntu-nodejs
+> sha256:a32fc91fc9cde84d251ed6ae63c5e11c28c8368b095415835513a1e994e148bb
 ```
 ```bash
 docker images
 >
-> tjel/test-repo    latest    e7a0ac6127ab    50 seconds ago    206.6 MB
-> ubuntu    latest    e4415b714b62    7 days ago    120.8 MB
-> hello-world    latest    c54a2cc56cbb    2 weeks ago    967 B
+> REPOSITORY           TAG    IMAGE ID    CREATED    SIZE
+> tjel/ubuntu-nodejs   latest    a32fc91fc9cd    26 seconds ago    216.4 MB
 ```
 
 
@@ -299,10 +305,10 @@ docker images
 - lista kontenerow
 
 ```bash
-docker ps [-l]
+docker ps [-la]
 >
-> CONTAINER ID   IMAGE   COMMAND   CREATED   STATUS   PORTS   NAMES
-> d9b100f2f636   ubuntu   "/bin/bash"   3 hours ago   Up 3 hours   silly_spence
+> CONTAINER ID   IMAGE   COMMAND    CREATED   STATUS   PORTS   NAMES
+> f4c9e2839826   ubuntu    "/bin/bash"   4 minutes ago   Exited (0) 2 minutes ago                 
 ```
 
 - zatrzymanie kontenera
@@ -403,8 +409,6 @@ docker images
 >
 > REPOSITORY    TAG    IMAGE ID            CREATED             SIZE
 > docker-whale    latest    7d9495d03763    38 minutes ago    273.7 MB
-> docker/whalesay    latest    fb434121fc77    4 hours ago    247 MB
-> hello-world    latest    91c95931e552    5 weeks ago    910 B
 ```
 
 ```bash
@@ -425,8 +429,6 @@ docker images
 > REPOSITORY    TAG    IMAGE ID    CREATED    SIZE
 > tjel/docker-whale    latest    7d9495d03763    5 minutes ago    273.7 MB
 > docker-whale    latest    7d9495d03763    2 hours ago    273.7 MB
-> docker/whalesay    latest    fb434121fc77    5 hours ago    247 MB
-> hello-world    latest    91c95931e552    5 weeks ago    910 B
 ```
 
 ---
@@ -434,7 +436,7 @@ docker images
 
 ```bash
 docker push tjel/docker-whale
->     The push refers to a repository [maryatdocker/docker-whale] (len: 1)
+>     The push refers to a repository [tjel/docker-whale] (len: 1)
 >     7d9495d03763: Image already exists
 >     c81071adeeb5: Image successfully pushed
 >     eb06e47a01d2: Image successfully pushed
@@ -459,12 +461,73 @@ docker run tjel/docker-whale
 ```
 
 ---
-#### 
+#### Docker Hub - tworzenie repozytorium
 
+<img src="./docker-hub-6.png" width="600"> 
+<img src="./docker-hub-7.png" width="600"> 
 
+---
+#### Status kontenera
 
+```bash
+docker run -h CONTAINER -it debian /bin/bash
+> Unable to find image 'debian:latest' locally
+> latest: Pulling from library/debian
+> 386a066cd84a: Pull complete 
+> Digest: sha256:c1ce85a0f7126a3b5cbf7c57676b01b37c755b9ff9e2f39ca88181c02b985724
+> Status: Downloaded newer image for debian:latest
+root@CONTAINER:/#
+```
 
+```bash
+docker ps
+> CONTAINER ID    IMAGE    COMMAND    CREATED    STATUS    PORTS    NAMES
+> 9ff1e5f1d68c    debian    "/bin/bash"    56 seconds ago    Up 55 seconds    goofy_gates
+```
 
+```bash
+docker inspect goofy_gates 
+> [
+>    {
+>        "Id": "9ff1e5f1d68cfc472d3ec67fda04111de66db7201ebc1274f0c5b31a02ad7e3c",
+>        "Created": "2016-11-28T01:06:56.150266104Z",
+>        "Path": "/bin/bash",
+>        "Args": [],
+>        "State": {
+>            "Status": "running",
+>            "Running": true,
+> ...
+```
+---
+#### Ustawienia sieciowe kontenera
+
+```bash
+docker inspect goofy_gates | grep IPAddress
+>            "SecondaryIPAddresses": null,
+>            "IPAddress": "172.17.0.2",
+>                    "IPAddress": "172.17.0.2",
+```
+
+- polaczenie pomiedzy dwoma kontenerami
+
+```bash
+docker run --name RedisDB -d redis
+```
+
+```bash
+docker run --rm -it --link RedisDB:RedisClient redis /bin/bash
+root@fb9976c9aea9:/data# redis-cli -h RedisClient -p 6379
+RedisClient:6379> ping
+PONG
+RedisClient:6379> set "abc" 123
+OK
+RedisClient:6379> get "abc"
+"123"
+RedisClient:6379> exit
+root@fb9976c9aea9:/data# exit
+exit
+
+```
 
 
     </textarea>
